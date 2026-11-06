@@ -1,6 +1,6 @@
 // Bump VERSION whenever index.html changes so phones pick up the new copy.
-const VERSION = 'v1';
-const CORE = ['./', './index.html', './manifest.webmanifest',
+const VERSION = 'v2';
+const CORE = ['./', './index.html', './manifest.webmanifest', './cloud.js', './firebase-config.js',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
@@ -22,6 +22,11 @@ self.addEventListener('fetch', e => {
       caches.open('core-' + VERSION).then(c => c.put(req, copy));
       return res;
     }).catch(() => caches.match(req).then(r => r || caches.match('./index.html'))));
+    return;
+  }
+  // Firebase SDK files: cache-first so the app still starts offline.
+  if (url.hostname === 'www.gstatic.com' && url.pathname.startsWith('/firebasejs/')) {
+    e.respondWith(caches.open('sdk').then(async c => (await c.match(req)) || fetch(req).then(res => { c.put(req, res.clone()); return res; })));
     return;
   }
   // Card photos from other sites: cache what has been seen, keep at most ~300.

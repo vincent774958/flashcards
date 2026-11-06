@@ -5,6 +5,9 @@
 ## 檔案結構
 - `index.html`：整個 App（HTML／CSS／JS 全部 inline），**6,011 字詞庫以 JSON 字串內嵌在 `const DEFAULT_CSV = "...";`**，所以檔案約 1.5 MB。
 - `manifest.webmanifest`、`icons/`：PWA 設定與圖示（180／192／512）。
+- `cloud.js`：Firebase 登入（Email／密碼）與進度雲端同步（ES module，SDK 從 gstatic CDN 載入，版本 10.12.2）。Firestore 結構：`users/{uid}`（`last` 最後位置）、`users/{uid}/progress/{localStorage key}`（`{queue, counts, t}`）。登入、按「立即同步」、App 回到前景時做全量合併，以 `t` 較新者為準；平常每次存檔會 debounce 1.5 秒寫一筆。主程式透過 `window.cloud.saveProgress/saveLast` 和 `window.fcApp.refresh/goto/current` 跟它溝通。
+- `firebase-config.js`：`export default firebaseConfig`；為 `null` 時隱藏同步功能、照常可用。
+- `firestore.rules`：每個 uid 只能讀寫自己的 `users/{uid}/**`。
 - `sw.js`：Service Worker。App shell 走 network-first 加離線備援；外部卡片照片快取最多約 300 張。**改完 index.html 後要把 `VERSION` 加一**，手機才會拿到新版。
 - `data/vocab.csv`：詞庫，三欄「單字, 背面內容（多行）, Level N」，沒有標題列，UTF-8 BOM。
 - `data/cards_src/c_00..c_40.txt`：詞庫原始資料，每行 `front|pos.意思|衍生字@…|搭配詞@…|英文例句|中文翻譯`，`-` 代表沒有衍生字；每檔 150 字，順序對應 `data/words.json`（從 PDF 解析出的 6,012 筆：word／pos／level）。medium 的兩筆在 CSV 裡已經合併，所以總數是 6,011。
@@ -20,7 +23,6 @@
 
 ## 尚未做／可做
 - 每個字再補 1–2 句例句（使用者問過，暫緩）。
-- 進度跨裝置同步（目前只存在各自的瀏覽器）。
 
 ## 部署
 推上 `main` 分支後，GitHub Pages（Settings → Pages → Deploy from branch → main / root）會自動更新，網址是 `https://<帳號>.github.io/<repo>/`。
