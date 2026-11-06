@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>單字學習卡</title>
+<style>
+  :root{
+    --bg:#f3efe7; --ink:#1f2a37; --muted:#6b7280; --card:#fffdf8;
+    --accent:#d9572b; --accent-soft:#fbe6dc; --line:#e7e0d3; --navy:#24324a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    --pad:0;background:radial-gradient(circle at 15% 10%,#fbf7ef 0,transparent 45%),var(--bg);
+    color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI","PingFang TC","Microsoft JhengHei","Noto Sans TC",sans-serif;
+    display:flex;justify-content:center;padding:14px 12px 12px;
+  }
+  .app{width:100%;max-width:640px;display:flex;flex-direction:column;gap:12px}
+
+  /* top bar */
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;color:var(--navy)}
+  .brand .logo{width:32px;height:32px;border-radius:10px;background:var(--navy);color:#fff;display:grid;place-items:center}
+  .btn{
+    display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:#fff;
+    color:var(--navy);font:inherit;font-size:14px;font-weight:500;padding:9px 14px;border-radius:999px;cursor:pointer;
+    transition:background .15s,border-color .15s,transform .1s;
+  }
+  .btn:hover{border-color:var(--navy)}
+  .btn:active{transform:scale(.97)}
+  .btn svg{width:18px;height:18px}
+  #fileInput{display:none}
+
+  /* progress */
+  .infobar{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:6px 6px 6px 12px}
+  .infobar .track{flex:1;min-width:50px}
+  .count{font-size:13px;color:var(--navy);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .infobar .stats{flex-wrap:nowrap;gap:4px}
+  .infobar .chip{padding:3px 8px;background:#faf7f1}
+  .infobar .tools{gap:4px}
+  .infobar .btn.icon{width:34px;height:34px;padding:0;border-color:transparent;background:#f3eee5}
+  .infobar .btn.icon:hover{border-color:var(--navy)}
+  .track{height:8px;background:#e5ddcf;border-radius:999px;overflow:hidden}
+  .fill{height:100%;width:0;background:linear-gradient(90deg,var(--accent),#f08a4b);border-radius:999px;transition:width .35s ease}
+
+  /* card */
+  .scene{perspective:1600px}
+  .card{display:grid;cursor:pointer;transition:transform .6s cubic-bezier(.3,.7,.2,1);transform-style:preserve-3d;min-height:360px}
+  .card.flipped{transform:rotateY(180deg)}
+  .face{
+    grid-area:1/1;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+    background:var(--card);border-radius:22px;border:1px solid var(--line);
+    box-shadow:0 1px 0 #fff inset,0 18px 40px -18px rgba(36,50,74,.35),0 4px 10px -4px rgba(36,50,74,.12);
+    padding:18px 22px;display:flex;flex-direction:column;
+  }
+  .face.back{transform:rotateY(180deg)}
+  .face-tag{font-size:12px;letter-spacing:.12em;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .face-tag svg{width:14px;height:14px}
+  .front-body{flex:1;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;text-align:center}
+  .word{font-family:Georgia,"Times New Roman",serif;font-weight:700;font-size:clamp(44px,10vw,72px);color:var(--navy);letter-spacing:-.01em;word-break:break-word}
+  .hint{text-align:center;font-size:13px;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:6px}
+  .hint svg{width:15px;height:15px}
+
+  .speak{
+    flex:none;width:46px;height:46px;border-radius:50%;border:none;cursor:pointer;
+    background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;transition:background .15s,transform .1s;
+  }
+  .speak:hover{background:var(--accent);color:#fff}
+  .speak:active{transform:scale(.92)}
+  .speak svg{width:22px;height:22px}
+  .speak.sm{width:34px;height:34px}
+  .speak.sm svg{width:17px;height:17px}
+
+  .back-body{display:flex;flex-direction:column;gap:0;font-size:15px;line-height:1.35}
+  .back-body .head{font-weight:700;font-size:17px;color:var(--navy);margin-bottom:2px}
+  .back-body .sec{
+    margin:6px 0 2px;align-self:flex-start;font-size:12px;font-weight:700;letter-spacing:.06em;
+    color:var(--accent);background:var(--accent-soft);padding:1px 8px;border-radius:5px;
+  }
+  .back-body .ln{padding-left:2px}
+  .pic{height:clamp(110px,22vh,170px);margin-bottom:8px;border-radius:12px;overflow:hidden;background:#ece5d8;flex:none}
+  .pic img{width:100%;height:100%;object-fit:cover;display:block}
+  .pic.none{display:none}
+  .example{display:flex;align-items:flex-start;gap:10px;align-items:center;background:#f6f1e7;border-radius:10px;padding:7px 10px;margin-top:2px}
+  .example .txt{flex:1}
+  .example .en{font-weight:500;color:var(--navy)}
+  .example .zh{color:var(--muted);font-size:13.5px}
+
+  /* nav */
+  .nav{display:flex;align-items:center;justify-content:center;gap:14px}
+  .nav .btn{padding:11px 20px}
+  .btn.primary{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .btn.primary:hover{background:#1a2538}
+  .btn:disabled{opacity:.4;cursor:default;transform:none}
+
+  /* stats */
+  .stats{display:flex;gap:8px;flex-wrap:wrap}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;padding:4px 10px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--muted)}
+  .chip b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .chip svg,.chip i{width:14px;height:14px;display:inline-block;flex:none}
+  .c-again{--c:#d64545}.c-hard{--c:#e08a1e}.c-good{--c:#2f9e62}.c-easy{--c:#3b74d9}
+  .chip svg{color:var(--c)}
+
+  /* rating buttons */
+  .rate{margin-top:auto;padding-top:12px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .rate button{
+    display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px;border-radius:12px;cursor:pointer;
+    font:inherit;font-size:14px;font-weight:700;color:var(--c);background:#fff;border:1.5px solid var(--c);
+    transition:background .15s,color .15s,transform .1s;
+  }
+  .rate button:hover{background:var(--c);color:#fff}
+  .rate button:active{transform:scale(.95)}
+  .rate svg{width:18px;height:18px}
+
+  /* done screen */
+  .done{display:none;flex-direction:column;align-items:center;text-align:center;gap:16px;background:var(--card);border:1px solid var(--line);
+    border-radius:22px;padding:44px 28px;box-shadow:0 18px 40px -18px rgba(36,50,74,.35)}
+  .done .trophy{width:72px;height:72px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center}
+  .done .trophy svg{width:36px;height:36px}
+  .done h2{margin:0;font-family:Georgia,"PingFang TC","Microsoft JhengHei",serif;font-size:30px;color:var(--navy)}
+  .done .stats{justify-content:center}
+  .app.finished .done{display:flex}
+  .app.finished .scene,.app.finished .nav{display:none}
+
+  .tools{display:flex;gap:8px;align-items:center}
+  .btn.icon{padding:9px;width:40px;height:40px;justify-content:center}
+
+  /* info modal */
+  .modal{position:fixed;inset:0;background:rgba(20,28,42,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:10}
+  .modal.open{display:flex}
+  .sheet{background:var(--card);border-radius:18px;width:100%;max-width:420px;padding:20px 22px;box-shadow:0 24px 60px -20px rgba(0,0,0,.45)}
+  .sheet-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .sheet-head h3{margin:0;font-size:17px;color:var(--navy);display:flex;align-items:center;gap:8px}
+  .sheet-head h3 svg{width:18px;height:18px}
+  .close{border:none;background:none;cursor:pointer;color:var(--muted);padding:4px;border-radius:8px;display:grid;place-items:center}
+  .close:hover{background:#f0eadf;color:var(--ink)}
+  .close svg{width:20px;height:20px}
+  .sheet h4{margin:12px 0 6px;font-size:12px;letter-spacing:.06em;color:var(--muted)}
+  .krow{display:flex;align-items:center;gap:10px;padding:5px 0;font-size:14px;line-height:1.35}
+  .krow .k{flex:none;min-width:64px;display:flex;justify-content:center;align-items:center;gap:3px}
+  kbd{font:600 12px/1 ui-monospace,Menlo,monospace;background:#fff;border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:5px 8px;color:var(--navy)}
+  .tag{font-weight:700;color:var(--c)}
+
+  .toast{font-size:13px;color:var(--muted);text-align:center;min-height:18px}
+  @media (max-width:600px){.infobar .cl{display:none}.infobar{gap:6px;padding-left:10px}.infobar .chip{padding:2px 7px;border-color:var(--c)}.infobar .chip i,.infobar .chip svg{display:none}.infobar .chip b{color:var(--c)}.infobar .track{min-width:40px}}
+  @media (max-width:520px){.face{padding:16px}.btn .lbl{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><span class="logo"><i data-lucide="layers"></i></span>單字學習卡</div>
+  </header>
+
+  <section class="infobar" aria-label="進度">
+    <div class="track"><div class="fill" id="fill"></div></div>
+    <b class="count" id="count">0 / 0</b>
+    <div class="stats" id="stats"></div>
+    <div class="tools">
+      <button class="btn icon" id="infoBtn" title="說明"><i data-lucide="info"></i></button>
+      <label class="btn icon" for="fileInput" title="匯入 CSV"><i data-lucide="file-up"></i></label>
+    </div>
+    <input type="file" id="fileInput" accept=".csv,text/csv">
+  </section>
+
+  <div class="scene">
+    <div class="card" id="card" tabindex="-1">
+      <div class="face front">
+        <div class="front-body">
+          <div class="word" id="word"></div>
+          <button class="speak" id="speakWord" title="朗讀單字 (Enter)"><i data-lucide="volume-2"></i></button>
+        </div>
+      </div>
+      <div class="face back">
+        <div class="pic" id="pic"></div>
+        <div class="back-body" id="backBody"></div>
+        <div class="rate">
+          <button class="c-again" data-rate="again"><i data-lucide="rotate-ccw"></i>Again</button>
+          <button class="c-hard" data-rate="hard"><i data-lucide="hourglass"></i>Hard</button>
+          <button class="c-good" data-rate="good"><i data-lucide="check"></i>Good</button>
+          <button class="c-easy" data-rate="easy"><i data-lucide="zap"></i>Easy</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="nav">
+    <button class="btn primary" id="flip"><i data-lucide="rotate-3d"></i><span class="lbl">翻面</span></button>
+  </nav>
+
+  <section class="done">
+    <div class="trophy"><i data-lucide="trophy"></i></div>
+    <h2>完成練習！</h2>
+    <div class="stats" id="doneStats"></div>
+    <button class="btn primary" id="restart"><i data-lucide="refresh-cw"></i>重新開始</button>
+  </section>
+  <div class="toast" id="toast"></div>
+</div>
+
+<div class="modal" id="infoModal">
+  <div class="sheet" role="dialog" aria-labelledby="infoTitle">
+    <div class="sheet-head">
+      <h3 id="infoTitle"><i data-lucide="keyboard"></i>使用說明</h3>
+      <button class="close" id="infoClose" title="關閉"><i data-lucide="x"></i></button>
+    </div>
+    <h4>快捷鍵</h4>
+    <div class="krow"><span class="k"><kbd>Space</kbd></span>卡片翻面</div>
+    <div class="krow"><span class="k"><kbd>Enter</kbd></span>朗讀單字（正面）／例句（背面）</div>
+    <div class="krow"><span class="k"><kbd>1</kbd>–<kbd>4</kbd></span>翻到背面後，選擇 Again／Hard／Good／Easy</div>
+    <h4>分類鍵</h4>
+    <div class="krow"><span class="k"><kbd>1</kbd></span><span><span class="tag c-again">Again</span>：插入到剩下卡片的第 2 張，馬上再複習</span></div>
+    <div class="krow"><span class="k"><kbd>2</kbd></span><span><span class="tag c-hard">Hard</span>：插入到剩下卡片的中間</span></div>
+    <div class="krow"><span class="k"><kbd>3</kbd></span><span><span class="tag c-good">Good</span>：移到所有卡片的最後</span></div>
+    <div class="krow"><span class="k"><kbd>4</kbd></span><span><span class="tag c-easy">Easy</span>：從本次練習中移除</span></div>
+  </div>
+</div>
+
+<script>
+const DEFAULT_CSV = `arrive,"arrive (v.) 到達、抵達
+【詞性變化】
+arrival (n.) 到達、抵達
+【搭配詞】
+arrive at the airport 到達機場
+arrive in London 到達倫敦
+【例句】
+We arrived at the hotel very late at night. (我們在深夜很晚才到達飯店。)"
+convenient,"convenient (adj.) 方便的、便利的
+【詞性變化】
+convenience (n.) 方便、便利
+【搭配詞】
+convenient transport 交通便利
+convenient location 地點便利
+【例句】
+It is very convenient to take the MRT in Taipei. (在台北搭乘捷運非常方便。)"
+experience,"experience (n./v.) 經驗、經歷；體驗
+【詞性變化】
+experienced (adj.) 有經驗的
+【搭配詞】
+work experience 工作經驗
+personal experience 親身經歷
+【例句】
+She has a lot of experience in teaching English. (她在英語教學方面有豐富的經驗。)"
+opportunity,"opportunity (n.) 機會、時機
+【詞性變化】
+opportune (adj.) 適時的、恰好的
+【搭配詞】
+job opportunity 工作機會
+take an opportunity 抓住機會
+【例句】
+Don't miss this rare opportunity to study abroad. (不要錯過這個難得的出國留學機會。)"
+prepare,"prepare (v.) 準備、預備
+【詞性變化】
+preparation (n.) 準備、預備
+【搭配詞】
+prepare for the exam 準備考試
+prepare a meal 準備餐點
+【例句】
+Students are preparing for the upcoming final exams. (學生們正在為即將到來的期末考做準備。)"
+protect,"protect (v.) 保護、防護
+【詞性變化】
+protection (n.) 保護、防護
+protective (adj.) 保護的
+【搭配詞】
+protect the environment 保護環境
+protect from harm 保護免受傷害
+【例句】
+We should wear helmets to protect our heads while riding. (我們騎車時應該戴頭盔以保護頭部。)"
+delay,"delay (n./v.) 延誤、延期
+【詞性變化】
+delayed (adj.) 延誤的
+【搭配詞】
+flight delay 航班延誤
+without delay 毫不延誤
+【例句】
+The train was delayed due to heavy rain. (火車因大雨而延誤。)"
+accept,"accept (v.) 接受、接納
+【詞性變化】
+acceptance (n.) 接受、認可
+acceptable (adj.) 可接受的
+【搭配詞】
+accept an invitation 接受邀請
+accept responsibility 承擔責任
+【例句】
+He gladly accepted the job offer from the company. (他愉快地接受了該公司的工作機會。)"
+suggest,"suggest (v.) 建議、提議
+【詞性變化】
+suggestion (n.) 建議、提議
+【搭配詞】
+suggest a solution 建議解決方案
+strongly suggest 強烈建議
+【例句】
+The doctor suggested that he take a few days off. (醫生建議他休假幾天。)"
+reduce,"reduce (v.) 減少、降低
+【詞性變化】
+reduction (n.) 減少、降低
+【搭配詞】
+reduce stress 減輕壓力
+reduce carbon emissions 減少碳排放
+【例句】
+Exercise can help reduce the risk of heart disease. (運動有助於降低患心臟病的風險。)"`;
+
+/* ---------- CSV parsing (supports quoted, multi-line fields) ---------- */
+function parseCSV(text){
+  text = text.replace(/^﻿/,'').replace(/\r\n?/g,'\n');
+  const rows=[]; let row=[], field='', q=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(q){
+      if(c==='"'){ if(text[i+1]==='"'){field+='"';i++;} else q=false; }
+      else field+=c;
+    }else{
+      if(c==='"') q=true;
+      else if(c===','){row.push(field);field='';}
+      else if(c==='\n'){row.push(field);rows.push(row);row=[];field='';}
+      else field+=c;
+    }
+  }
+  if(field!==''||row.length){row.push(field);rows.push(row);}
+  return rows.map(r=>({word:(r[0]||'').trim(),back:(r[1]||'').trim()})).filter(r=>r.word);
+}
+
+/* ---------- Speech ---------- */
+let voice=null;
+function pickVoice(){
+  const vs=speechSynthesis.getVoices().filter(v=>/^en/i.test(v.lang));
+  voice=vs.find(v=>/en-US/i.test(v.lang)&&/Google|Samantha|Aria|Jenny|Natural/i.test(v.name))
+      ||vs.find(v=>/en-US/i.test(v.lang))||vs[0]||null;
+}
+if('speechSynthesis' in window){ pickVoice(); speechSynthesis.onvoiceschanged=pickVoice; }
+function speak(text){
+  if(!('speechSynthesis' in window)||!text) return;
+  try{
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(text);
+    u.lang='en-US'; if(voice) u.voice=voice; u.rate=0.95;
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+/* ---------- Images: LoremFlickr first, Wikimedia Commons fallback ---------- */
+const imgCache=new Map();             // word -> {img, ok}
+function lfURL(word){
+  let h=0; for(const c of word) h=(h*31+c.charCodeAt(0))%100000;   // stable lock => same photo every time
+  return `https://loremflickr.com/480/300/${encodeURIComponent(word.toLowerCase())}?lock=${h}`;
+}
+function tryImg(url,ms=5000){
+  return new Promise((res,rej)=>{
+    const img=new Image(); let t=setTimeout(()=>{img.src='';rej('timeout');},ms);
+    img.onload=()=>{clearTimeout(t);(img.decode?img.decode():Promise.resolve()).catch(()=>{}).then(()=>res(img));};
+    img.onerror=()=>{clearTimeout(t);rej('error');};
+    img.src=url;
+  });
+}
+function collocation(card){             // first English collocation, e.g. "arrive at the airport"
+  const ls=card.back.split('\n').map(s=>s.trim()); const i=ls.findIndex(l=>/搭配詞/.test(l));
+  const m=i>=0&&ls[i+1]?ls[i+1].match(/^[A-Za-z][A-Za-z' .-]*[A-Za-z]/):null;
+  return m?m[0]:card.word;
+}
+async function commonsSearch(q){
+  const u='https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*'+
+    '&generator=search&gsrnamespace=6&gsrlimit=6&prop=imageinfo&iiprop=url&iiurlwidth=480'+
+    '&gsrsearch='+encodeURIComponent(q+' filetype:bitmap');
+  const r=await fetch(u); if(!r.ok) throw 'commons '+r.status;
+  const pages=Object.values((await r.json()).query?.pages||{}).sort((a,b)=>a.index-b.index);
+  const hit=pages.map(p=>p.imageinfo?.[0]?.thumburl).find(x=>x&&/\.(jpe?g|png)$/i.test(x.split('?')[0]));
+  if(!hit) throw 'no result'; return hit;
+}
+async function resolveImg(card){
+  try{ return await tryImg(lfURL(card.word)); }catch(e){}
+  for(const q of [collocation(card),card.word]){
+    try{ return await tryImg(await commonsSearch(q),8000); }catch(e){}
+  }
+  throw 'none';
+}
+function loadImg(card){
+  if(imgCache.has(card.word)) return imgCache.get(card.word);
+  const entry={img:null,ok:null};
+  imgCache.set(card.word,entry);
+  resolveImg(card).then(img=>{img.alt=card.word;entry.img=img;entry.ok=true;})
+                  .catch(()=>{entry.ok=false;})
+                  .finally(()=>{ if(currentWord()===card.word) showImg(); });
+  return entry;
+}
+function prefetch(){ queue.slice(0,4).forEach(i=>loadImg(cards[i])); }  // current + next 3
+const currentWord=()=>queue.length?cards[queue[0]].word:null;
+function showImg(){
+  const box=$('pic'); if(!queue.length) return;
+  const e=loadImg(cards[queue[0]]);
+  box.classList.toggle('none',e.ok===false);
+  if(e.ok){ if(box.firstChild!==e.img) box.replaceChildren(e.img); }
+  else box.replaceChildren();
+}
+
+/* ---------- State ---------- */
+let cards=parseCSV(DEFAULT_CSV), queue=[], counts={}, flipped=false, examples=[];
+const $=id=>document.getElementById(id);
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+/* ---------- Icons (Lucide, embedded) ---------- */
+const ICONS={"check": "<path d=\"M20 6 9 17l-5-5\" />", "file-up": "<path d=\"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z\" /> <path d=\"M14 2v4a2 2 0 0 0 2 2h4\" /> <path d=\"M12 12v6\" /> <path d=\"m15 15-3-3-3 3\" />", "hourglass": "<path d=\"M5 22h14\" /> <path d=\"M5 2h14\" /> <path d=\"M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22\" /> <path d=\"M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2\" />", "info": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"M12 16v-4\" /> <path d=\"M12 8h.01\" />", "keyboard": "<path d=\"M10 8h.01\" /> <path d=\"M12 12h.01\" /> <path d=\"M14 8h.01\" /> <path d=\"M16 12h.01\" /> <path d=\"M18 8h.01\" /> <path d=\"M6 8h.01\" /> <path d=\"M7 16h10\" /> <path d=\"M8 12h.01\" /> <rect width=\"20\" height=\"16\" x=\"2\" y=\"4\" rx=\"2\" />", "layers": "<path d=\"m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z\" /> <path d=\"m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65\" /> <path d=\"m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65\" />", "refresh-cw": "<path d=\"M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8\" /> <path d=\"M21 3v5h-5\" /> <path d=\"M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16\" /> <path d=\"M8 16H3v5\" />", "rotate-3d": "<path d=\"M16.466 7.5C15.643 4.237 13.952 2 12 2 9.239 2 7 6.477 7 12s2.239 10 5 10c.342 0 .677-.069 1-.2\" /> <path d=\"m15.194 13.707 3.814 1.86-1.86 3.814\" /> <path d=\"M19 15.57c-1.804.885-4.274 1.43-7 1.43-5.523 0-10-2.239-10-5s4.477-5 10-5c4.838 0 8.873 1.718 9.8 4\" />", "rotate-ccw": "<path d=\"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8\" /> <path d=\"M3 3v5h5\" />", "trophy": "<path d=\"M6 9H4.5a2.5 2.5 0 0 1 0-5H6\" /> <path d=\"M18 9h1.5a2.5 2.5 0 0 0 0-5H18\" /> <path d=\"M4 22h16\" /> <path d=\"M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22\" /> <path d=\"M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22\" /> <path d=\"M18 2H6v7a6 6 0 0 0 12 0V2Z\" />", "volume-2": "<path d=\"M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z\" /> <path d=\"M16 9a5 5 0 0 1 0 6\" /> <path d=\"M19.364 18.364a9 9 0 0 0 0-12.728\" />", "x": "<path d=\"M18 6 6 18\" /> <path d=\"m6 6 12 12\" />", "zap": "<path d=\"M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z\" />"};
+function icons(){
+  document.querySelectorAll('i[data-lucide]').forEach(el=>{
+    const n=el.getAttribute('data-lucide'); if(!ICONS[n]) return;
+    const t=document.createElement('template');
+    t.innerHTML=`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-${n}" aria-hidden="true">${ICONS[n]}</svg>`;
+    el.replaceWith(t.content.firstChild);
+  });
+}
+const SPEAK_ICON='<i data-lucide="volume-2"></i>';
+const RATES=[['again','Again','rotate-ccw'],['hard','Hard','hourglass'],['good','Good','check'],['easy','Easy','zap']];
+
+function splitExample(line){
+  const m=line.match(/^(.*?)\s*[（(]([^()（）]*[一-鿿][^()（）]*)[)）]\s*$/);
+  return m?{en:m[1].trim(),zh:m[2].trim()}:{en:line.trim(),zh:''};
+}
+
+function statsHTML(){
+  return RATES.map(([k,l,ic])=>`<span class="chip c-${k}" title="${l}"><i data-lucide="${ic}"></i><span class="cl">${l}</span><b>${counts[k]}</b></span>`).join('');
+}
+
+function updateProgress(){
+  const total=cards.length, left=queue.length;
+  $('count').textContent=`${left} / ${total}`;
+  $('fill').style.width=`${total?(total-left)/total*100:0}%`;
+  $('stats').innerHTML=statsHTML();
+}
+
+function render(){
+  updateProgress();
+  if(!queue.length){
+    $('doneStats').innerHTML=statsHTML();
+    document.querySelector('.app').classList.add('finished');
+    icons(); return;
+  }
+  document.querySelector('.app').classList.remove('finished');
+  const c=cards[queue[0]];
+  $('word').textContent=c.word;
+  const lines=c.back.split('\n').map(s=>s.trim()).filter(Boolean);
+  let html='', inEx=false; examples=[];
+  lines.forEach((ln,i)=>{
+    if(/^【.*】$/.test(ln)){ inEx=/例句/.test(ln); html+=`<div class="sec">${esc(ln.replace(/[【】]/g,''))}</div>`; return; }
+    if(i===0){ html+=`<div class="head">${esc(ln)}</div>`; return; }
+    if(inEx){
+      const ex=splitExample(ln), k=examples.push(ex.en)-1;
+      html+=`<div class="example"><div class="txt"><div class="en">${esc(ex.en)}</div>${ex.zh?`<div class="zh">${esc(ex.zh)}</div>`:''}</div>
+        <button class="speak sm" data-ex="${k}" title="朗讀例句 (Enter)">${SPEAK_ICON}</button></div>`;
+      return;
+    }
+    html+=`<div class="ln">${esc(ln)}</div>`;
+  });
+  $('backBody').innerHTML=html;
+  showImg();
+  icons();
+}
+
+function setFlipped(v){
+  flipped=v;
+  $('card').classList.toggle('flipped',v);
+  autoRead();
+}
+function autoRead(){
+  if(!queue.length) return;
+  flipped?speak(examples.join(' ')):speak(cards[queue[0]].word);
+}
+
+/* ---------- Save / resume progress (localStorage) ---------- */
+const STORE='flashcards-progress-v1';
+function save(){
+  try{ localStorage.setItem(STORE,JSON.stringify({cards,queue,counts})); }catch(e){}
+}
+function restore(){
+  try{
+    const d=JSON.parse(localStorage.getItem(STORE)||'null');
+    if(!d||!Array.isArray(d.cards)||!d.cards.length||!Array.isArray(d.queue)) return false;
+    if(!d.cards.every(c=>c&&typeof c.word==='string'&&typeof c.back==='string')) return false;
+    if(!d.queue.every(i=>Number.isInteger(i)&&i>=0&&i<d.cards.length)) return false;
+    const k=['again','hard','good','easy'];
+    if(!d.counts||!k.every(x=>Number.isFinite(d.counts[x]))) return false;
+    cards=d.cards; queue=d.queue; counts=d.counts; return true;
+  }catch(e){ return false; }
+}
+
+function showCurrent(){
+  flipped=false;
+  const card=$('card');
+  card.style.transition='none'; card.classList.remove('flipped');
+  void card.offsetWidth; card.style.transition='';
+  save(); prefetch(); render(); autoRead();
+}
+
+function startSession(){
+  queue=cards.map((_,i)=>i);
+  counts={again:0,hard:0,good:0,easy:0};
+  showCurrent();
+}
+
+function rate(kind){
+  counts[kind]++;
+  const cur=queue.shift(), rest=queue;
+  if(kind==='again') rest.splice(Math.min(1,rest.length),0,cur);
+  else if(kind==='hard') rest.splice(Math.floor(rest.length/2),0,cur);
+  else if(kind==='good') rest.push(cur);
+  /* easy: removed from this session */
+  showCurrent();
+}
+
+/* ---------- Events ---------- */
+$('card').addEventListener('click',e=>{
+  const r=e.target.closest('[data-rate]');
+  if(r){ e.stopPropagation(); if(flipped) rate(r.dataset.rate); return; }
+  const b=e.target.closest('.speak');
+  if(b){ e.stopPropagation(); b.dataset.ex!==undefined?speak(examples[+b.dataset.ex]):speak(cards[queue[0]].word); return; }
+  setFlipped(!flipped);
+});
+$('flip').addEventListener('click',()=>setFlipped(!flipped));
+$('restart').addEventListener('click',startSession);
+
+const modal=$('infoModal');
+const setInfo=v=>modal.classList.toggle('open',v);
+$('infoBtn').addEventListener('click',()=>setInfo(true));
+$('infoClose').addEventListener('click',()=>setInfo(false));
+modal.addEventListener('click',e=>{ if(e.target===modal) setInfo(false); });
+
+const RATE_KEYS={'1':'again','2':'hard','3':'good','4':'easy'};
+document.addEventListener('keydown',e=>{
+  if(e.ctrlKey||e.metaKey||e.altKey) return;
+  if(modal.classList.contains('open')){ if(e.key==='Escape') setInfo(false); return; }
+  if(!queue.length) return;                       // finished screen
+  if(e.key==='Enter'){ e.preventDefault(); autoRead(); }
+  else if(e.key===' '||e.code==='Space'){ e.preventDefault(); if(!e.repeat) setFlipped(!flipped); }
+  else if(RATE_KEYS[e.key]&&!e.repeat){ if(flipped){ e.preventDefault(); rate(RATE_KEYS[e.key]); } }
+  else return;
+  if(document.activeElement&&document.activeElement!==document.body) document.activeElement.blur();
+});
+
+$('fileInput').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{
+    const parsed=parseCSV(r.result);
+    if(parsed.length){ cards=parsed; imgCache.clear(); $('toast').textContent=`已匯入 ${f.name}（${parsed.length} 張卡片）`; startSession(); }
+    else $('toast').textContent='無法讀取此 CSV，請確認第一欄為單字、第二欄為內容。';
+    e.target.value='';
+  };
+  r.readAsText(f,'UTF-8');
+});
+
+if(restore()) showCurrent(); else startSession();
+</script>
+</body>
+</html>
